@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>課金CSV分割ツール</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Kaku Gothic ProN', 'Yu Gothic', sans-serif;
+    background: #f5f5f7;
+    color: #1d1d1f;
+    margin: 0;
+    padding: 24px 16px;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 6px; }
+  .desc { color: #666; font-size: 13px; margin-bottom: 20px; line-height: 1.6; }
+  code { background: #f0f0f0; padding: 1px 6px; border-radius: 4px; font-size: 12px; }
+  .drop-zone {
+    border: 2px dashed #c7c7cc;
+    border-radius: 12px;
+    padding: 40px 20px;
+    text-align: center;
+    background: #fff;
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .drop-zone.over { border-color: #0071e3; background: #e8f3ff; }
+  .drop-zone.has-file { border-style: solid; border-color: #34c759; background: #f0fff4; }
+  .drop-zone p { margin: 4px 0; color: #666; font-size: 14px; }
+  .drop-zone .icon { font-size: 32px; margin-bottom: 8px; }
+  input[type=file] { display: none; }
+  .panel {
+    background: #fff;
+    border-radius: 12px;
+    padding: 18px 20px;
+    margin-top: 16px;
+    border: 1px solid #e5e5ea;
+  }
+  .panel h2 { font-size: 13px; margin: 0 0 12px; color: #666; font-weight: 600; letter-spacing: .04em; }
+  .row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f5f5f7; font-size: 14px; gap: 12px; align-items: center; }
+  .row:last-child { border-bottom: none; }
+  .label { color: #666; flex-shrink: 0; }
+  .value { font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; word-break: break-all; }
+  select {
+    padding: 6px 10px;
+    border: 1px solid #c7c7cc;
+    border-radius: 6px;
+    font-size: 13px;
+    background: #fff;
+    cursor: pointer;
+    min-width: 140px;
+  }
+  .actions { display: grid; gap: 8px; margin-top: 16px; }
+  .btn {
+    padding: 13px 20px;
+    border: none;
+    border-radius: 10px;
+    background: #0071e3;
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: center;
+  }
+  .btn:hover { background: #0077ed; }
+  .btn:disabled { background: #c7c7cc; cursor: not-allowed; }
+  .btn.secondary { background: #f0f0f0; color: #1d1d1f; }
+  .btn.secondary:hover { background: #e5e5ea; }
+  .error {
+    background: #fff1f0;
+    border: 1px solid #ffccc7;
+    color: #cf1322;
+    padding: 12px 14px;
+    border-radius: 8px;
+    margin-top: 16px;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  .loading {
+    background: #fffbe6;
+    border: 1px solid #ffe58f;
+    color: #ad6800;
+    padding: 12px 14px;
+    border-radius: 8px;
+    margin-top: 16px;
+    font-size: 13px;
+  }
+  .hint { font-size: 12px; color: #888; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>📋 課金CSV分割ツール</h1>
+  <p class="desc">
+    MEO請求管理の<strong>xlsx</strong>または<strong>CSV</strong>を投入すると、当月分・前月分の2ファイル（プラン1位/3位のみ）を出力します。<br>
+    xlsxの場合は<code>2026.4</code>のような最新月シートを自動選択。
+  </p>
+
+  <div class="drop-zone" id="dropZone">
+    <div class="icon">📁</div>
+    <p><strong>xlsx / CSV をドロップ</strong>　または　クリックして選択</p>
+    <p class="hint">xlsx → シート名から月判定 ／ CSV → ファイル名から月判定</p>
+    <input type="file" id="fileInput" accept=".csv,.xlsx,.xls">
+  </div>
+
+  <div id="result"></div>
+</div>
+
+<script>
+const dz = document.getElementById('dropZone');
+const fi = document.getElementById('fileInput');
+const resultEl = document.getElementById('result');
+
+let parsedRows = null;
+let detectedYear = null;
+let detectedMonth = null;
+let fileName = null;
+let sourceLabel = '';
+let availableSheets = [];
+let currentSheetName = '';
+let availableMonths = []; // データから抽出した{year, month, label}リスト
+let curRows = [], prevRows = [], curLabel = '', prevLabel = '';
+
+dz.addEventListener('click', () => fi.click());
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('over'));
+dz.addEventListener('drop', e => {
+  e.preventDefault();
+  dz.classList.remove('over');
+  if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+});
+fi.addEventListener('change', e => {
+  if (e.target.files.length) handleFile(e.target.files[0]);
+});
+
+function handleFile(file) {
+  fileName = file.name;
+  resultEl.innerHTML = '<div class="loading">⏳ 読み込み中...</div>';
+  const isExcel = /\.xlsx?$/i.test(file.name);
+  if (isExcel) {
+    handleExcel(file);
+  } else {
+    handleCsv(file);
+  }
+}
+
+function handleCsv(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      parsedRows = parseCSV(e.target.result);
+      availableSheets = [];
+      currentSheetName = '';
+      detectMonthFromFilename(file.name);
+      sourceLabel = file.name;
+      extractAvailableMonths();
+      render();
+      dz.classList.add('has-file');
+    } catch (err) {
+      showError(err.message);
+    }
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+function handleExcel(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+      availableSheets = wb.SheetNames.slice();
+
+      let bestSheet = null;
+      let bestKey = -1;
+      for (const name of wb.SheetNames) {
+        const m = name.match(/^(\d{4})\.(\d{1,2})$/);
+        if (m) {
+          const key = parseInt(m[1]) * 100 + parseInt(m[2]);
+          if (key > bestKey) { bestKey = key; bestSheet = name; }
+        }
+      }
+      if (!bestSheet) bestSheet = wb.SheetNames[0];
+
+      window.__wb = wb;
+      loadSheet(wb, bestSheet);
+      render();
+      dz.classList.add('has-file');
+    } catch (err) {
+      showError('xlsx読み込み失敗: ' + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function loadSheet(wb, sheetName) {
+  const ws = wb.Sheets[sheetName];
+  parsedRows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: true });
+  parsedRows = parsedRows.filter(r => r.some(c => c !== '' && c != null));
+  currentSheetName = sheetName;
+  sourceLabel = `${fileName} → シート「${sheetName}」`;
+  const m = sheetName.match(/^(\d{4})\.(\d{1,2})$/);
+  if (m) {
+    detectedYear = parseInt(m[1]);
+    detectedMonth = parseInt(m[2]);
+  } else {
+    detectMonthFromFilename(fileName);
+  }
+  extractAvailableMonths();
+}
+
+// データのI列(対象月)からYYYY年M月パターンを抽出してドロップダウン候補に
+function extractAvailableMonths() {
+  if (!parsedRows || parsedRows.length < 2) { availableMonths = []; return; }
+  const cols = findColumns(parsedRows[0]);
+  if (cols.month < 0) { availableMonths = []; return; }
+  const set = new Map(); // key=year*100+month, value={year,month,label}
+  for (let i = 1; i < parsedRows.length; i++) {
+    const v = String(parsedRows[i][cols.month] || '').trim();
+    const m = v.match(/^(\d{4})年(\d{1,2})月$/);
+    if (m) {
+      const y = parseInt(m[1]), mm = parseInt(m[2]);
+      const key = y * 100 + mm;
+      if (!set.has(key)) set.set(key, { year: y, month: mm, label: `${y}年${mm}月` });
+    }
+  }
+  availableMonths = Array.from(set.values()).sort((a, b) => (b.year * 100 + b.month) - (a.year * 100 + a.month));
+}
+
+function parseCSV(text) {
+  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+  const rows = [];
+  let cur = [], field = '', inQuote = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuote) {
+      if (c === '"') {
+        if (text[i+1] === '"') { field += '"'; i++; }
+        else { inQuote = false; }
+      } else { field += c; }
+    } else {
+      if (c === '"') inQuote = true;
+      else if (c === ',') { cur.push(field); field = ''; }
+      else if (c === '\n') { cur.push(field); rows.push(cur); cur = []; field = ''; }
+      else if (c === '\r') { /* skip */ }
+      else field += c;
+    }
+  }
+  if (field.length || cur.length) { cur.push(field); rows.push(cur); }
+  return rows.filter(r => r.some(c => c !== ''));
+}
+
+function detectMonthFromFilename(name) {
+  const m = name.match(/(\d{4})[\.\-_](\d{1,2})/);
+  if (m) {
+    detectedYear = parseInt(m[1]);
+    detectedMonth = parseInt(m[2]);
+  } else {
+    const now = new Date();
+    detectedYear = now.getFullYear();
+    detectedMonth = now.getMonth() + 1;
+  }
+}
+
+function getPrevMonth(y, m) {
+  return m === 1 ? [y - 1, 12] : [y, m - 1];
+}
+
+function findColumns(header) {
+  const normalize = s => String(s || '').replace(/[\r\n\s]/g, '');
+  const find = key => header.findIndex(h => normalize(h) === key);
+  return {
+    cust: find('顧客番号'),
+    month: find('対象月'),
+    days: find('課金日数'),
+    plan: find('プラン')
+  };
+}
+
+function filterRows(rows, year, month, cols) {
+  const target = `${year}年${month}月`;
+  const matched = [];
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i];
+    if (!r[cols.cust]) continue;
+    const m = String(r[cols.month] || '').trim();
+    const p = String(r[cols.plan] || '').trim();
+    if (m === target && (p === '1位' || p === '3位')) {
+      let d = r[cols.days];
+      if (d !== '' && d !== null && d !== undefined) {
+        const n = Number(d);
+        d = (!isNaN(n) && n === Math.floor(n)) ? Math.floor(n) : d;
+      }
+      matched.push([r[cols.cust], d]);
+    }
+  }
+  return matched;
+}
+
+function render() {
+  if (!parsedRows || parsedRows.length < 2) {
+    showError('データが空、または読み込みに失敗しました');
+    return;
+  }
+  const header = parsedRows[0];
+  const cols = findColumns(header);
+  if (cols.cust < 0 || cols.month < 0 || cols.days < 0 || cols.plan < 0) {
+    showError(`必要な列が見つかりません<br>顧客番号:${cols.cust} / 対象月:${cols.month} / 課金日数:${cols.days} / プラン:${cols.plan}<br>※ -1 は未検出。シート/CSVのヘッダー行を確認してください。`);
+    return;
+  }
+  const [py, pm] = getPrevMonth(detectedYear, detectedMonth);
+  curRows = filterRows(parsedRows, detectedYear, detectedMonth, cols);
+  prevRows = filterRows(parsedRows, py, pm, cols);
+  curLabel = `${detectedYear}年${detectedMonth}月`;
+  prevLabel = `${py}年${pm}月`;
+
+  // シート選択UI（xlsxのみ）
+  let sheetSelector = '';
+  if (availableSheets.length > 0) {
+    sheetSelector = `
+      <div class="row">
+        <span class="label">シート選択</span>
+        <select id="sheetSel">
+          ${availableSheets.map(s => `<option value="${escapeHtml(s)}" ${s===currentSheetName?'selected':''}>${escapeHtml(s)}</option>`).join('')}
+        </select>
+      </div>`;
+  }
+
+  // 対象月選択UI（データから抽出した候補）
+  const currentMonthKey = detectedYear * 100 + detectedMonth;
+  let monthOptions;
+  if (availableMonths.length > 0) {
+    monthOptions = availableMonths.map(o => 
+      `<option value="${o.year}-${o.month}" ${(o.year*100+o.month)===currentMonthKey?'selected':''}>${o.label}</option>`
+    ).join('');
+  } else {
+    monthOptions = `<option value="${detectedYear}-${detectedMonth}" selected>${curLabel}</option>`;
+  }
+
+  resultEl.innerHTML = `
+    <div class="panel">
+      <h2>📋 ファイル情報</h2>
+      <div class="row"><span class="label">ソース</span><span class="value">${escapeHtml(sourceLabel)}</span></div>
+      <div class="row"><span class="label">データ行数</span><span class="value">${parsedRows.length - 1} 件</span></div>
+      ${sheetSelector}
+      <div class="row">
+        <span class="label">対象月</span>
+        <select id="monthSel">${monthOptions}</select>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>🎯 抽出結果（プラン: 1位 / 3位）</h2>
+      <div class="row"><span class="label">${curLabel}（当月）</span><span class="value">${curRows.length} 件</span></div>
+      <div class="row"><span class="label">${prevLabel}（前月）</span><span class="value">${prevRows.length} 件</span></div>
+    </div>
+    <div class="actions">
+      <button class="btn" id="dlCur" ${curRows.length === 0 ? 'disabled' : ''}>
+        📥 当月分DL（${curLabel}・${curRows.length}件）
+      </button>
+      <button class="btn secondary" id="dlPrev" ${prevRows.length === 0 ? 'disabled' : ''}>
+        📥 前月分DL（${prevLabel}・${prevRows.length}件）
+      </button>
+    </div>
+  `;
+
+  document.getElementById('monthSel').onchange = e => {
+    const [y, m] = e.target.value.split('-').map(Number);
+    detectedYear = y;
+    detectedMonth = m;
+    render();
+  };
+  document.getElementById('dlCur').onclick = () => downloadCSV(curRows, curLabel);
+  document.getElementById('dlPrev').onclick = () => downloadCSV(prevRows, prevLabel);
+
+  const sheetSel = document.getElementById('sheetSel');
+  if (sheetSel) {
+    sheetSel.onchange = e => {
+      loadSheet(window.__wb, e.target.value);
+      render();
+    };
+  }
+}
+
+function downloadCSV(rows, label) {
+  let csv = '\uFEFF顧客番号,' + label + '\r\n';
+  for (const [c, d] of rows) {
+    csv += `${csvEscape(c)},${csvEscape(d == null ? '' : d)}\r\n`;
+  }
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `課金日数_${label}_3位or1位.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function csvEscape(v) {
+  const s = String(v);
+  if (/[",\r\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+  return s;
+}
+
+function showError(msg) {
+  resultEl.innerHTML = `<div class="error">⚠️ ${msg}</div>`;
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+</script>
+</body>
+</html>
