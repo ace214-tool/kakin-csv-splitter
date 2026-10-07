@@ -88,6 +88,10 @@
     font-size: 13px;
   }
   .hint { font-size: 12px; color: #888; }
+  .links { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+  .links a { display: block; background: #fff; border: 1px solid #e5e5ea; border-radius: 10px; padding: 10px 12px; font-size: 13px; color: #0071e3; text-decoration: none; text-align: center; }
+  .links a:hover { background: #e8f3ff; border-color: #0071e3; }
+  .links a small { display: block; color: #888; font-size: 11px; margin-bottom: 2px; }
   .fetch-box { background: #fff; border: 1px solid #e5e5ea; border-radius: 12px; padding: 20px; text-align: center; }
   .fetch-box .btn { width: 100%; }
   .fetch-box .hint { margin: 10px 0 0; }
@@ -103,6 +107,11 @@
     ボタンを押すと<strong>MEO請求管理</strong>スプレッドシートを直接読み込み、前月分・前々月分の2ファイル（プラン1位/3位のみ）を出力します。<br>
     <code>2026.4</code>のような最新月シートを自動選択。
   </p>
+
+  <div class="links">
+    <a href="https://docs.google.com/spreadsheets/d/1-LQGmLhgBIPgb0eBeaZSs4h5fFJuk9DeEEW_Woa5hb0/edit" target="_blank" rel="noopener"><small>ソース（読み込み元）</small>📄 MEO請求管理（スプレッドシート）</a>
+    <a href="https://x78zzpelwp0i.cybozu.com/k/76/" target="_blank" rel="noopener"><small>更新先（CSVを読み込むアプリ）</small>🔗 kintone 課金日累計管理</a>
+  </div>
 
   <div class="fetch-box">
     <button class="btn" id="btnFetch">📊 スプレッドシートから最新を取得</button>
