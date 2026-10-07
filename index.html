@@ -88,7 +88,8 @@
     font-size: 13px;
   }
   .hint { font-size: 12px; color: #888; }
-  .links { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+  .links { margin-bottom: 16px; }
+  .links.bottom { margin: 16px 0 0; }
   .links a { display: block; background: #fff; border: 1px solid #e5e5ea; border-radius: 10px; padding: 10px 12px; font-size: 13px; color: #0071e3; text-decoration: none; text-align: center; }
   .links a:hover { background: #e8f3ff; border-color: #0071e3; }
   .links a small { display: block; color: #888; font-size: 11px; margin-bottom: 2px; }
@@ -110,7 +111,6 @@
 
   <div class="links">
     <a href="https://docs.google.com/spreadsheets/d/1-LQGmLhgBIPgb0eBeaZSs4h5fFJuk9DeEEW_Woa5hb0/edit" target="_blank" rel="noopener"><small>ソース（読み込み元）</small>📄 MEO請求管理（スプレッドシート）</a>
-    <a href="https://x78zzpelwp0i.cybozu.com/k/76/" target="_blank" rel="noopener"><small>更新先（CSVを読み込むアプリ）</small>🔗 kintone 課金日累計管理</a>
   </div>
 
   <div class="fetch-box">
@@ -127,6 +127,10 @@
   </div>
 
   <div id="result"></div>
+
+  <div class="links bottom">
+    <a href="https://x78zzpelwp0i.cybozu.com/k/76/" target="_blank" rel="noopener"><small>更新先（CSVを読み込むアプリ）</small>🔗 kintone 課金日累計管理</a>
+  </div>
 </div>
 
 <script>
@@ -393,39 +397,11 @@ function render() {
   curLabel = `${detectedYear}年${detectedMonth}月`;
   prevLabel = `${py}年${pm}月`;
 
-  // シート選択UI（xlsx・スプレッドシート取得時）
-  let sheetSelector = '';
-  if (availableSheets.length > 0) {
-    sheetSelector = `
-      <div class="row">
-        <span class="label">シート選択</span>
-        <select id="sheetSel">
-          ${availableSheets.map(s => `<option value="${escapeHtml(s)}" ${s===currentSheetName?'selected':''}>${escapeHtml(s)}</option>`).join('')}
-        </select>
-      </div>`;
-  }
-
-  // 対象月選択UI（データから抽出した候補）
-  const currentMonthKey = detectedYear * 100 + detectedMonth;
-  let monthOptions;
-  if (availableMonths.length > 0) {
-    monthOptions = availableMonths.map(o => 
-      `<option value="${o.year}-${o.month}" ${(o.year*100+o.month)===currentMonthKey?'selected':''}>${o.label}</option>`
-    ).join('');
-  } else {
-    monthOptions = `<option value="${detectedYear}-${detectedMonth}" selected>${curLabel}</option>`;
-  }
-
   resultEl.innerHTML = `
     <div class="panel">
       <h2>📋 読み込み情報</h2>
       <div class="row"><span class="label">ソース</span><span class="value">${escapeHtml(sourceLabel)}</span></div>
       <div class="row"><span class="label">データ行数</span><span class="value">${parsedRows.length - 1} 件</span></div>
-      ${sheetSelector}
-      <div class="row">
-        <span class="label">対象月</span>
-        <select id="monthSel">${monthOptions}</select>
-      </div>
     </div>
     <div class="panel">
       <h2>🎯 抽出結果（プラン: 1位 / 3位）</h2>
@@ -442,26 +418,8 @@ function render() {
     </div>
   `;
 
-  document.getElementById('monthSel').onchange = e => {
-    const [y, m] = e.target.value.split('-').map(Number);
-    detectedYear = y;
-    detectedMonth = m;
-    render();
-  };
   document.getElementById('dlCur').onclick = () => downloadCSV(curRows, curLabel);
   document.getElementById('dlPrev').onclick = () => downloadCSV(prevRows, prevLabel);
-
-  const sheetSel = document.getElementById('sheetSel');
-  if (sheetSel) {
-    sheetSel.onchange = e => {
-      if (sourceMode === 'sheet') {
-        fetchFromSheet(e.target.value);
-      } else {
-        loadSheet(window.__wb, e.target.value);
-        render();
-      }
-    };
-  }
 }
 
 function downloadCSV(rows, label) {
