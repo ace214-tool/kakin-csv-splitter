@@ -100,7 +100,7 @@
 <div class="wrap">
   <h1>📋 課金CSV分割ツール</h1>
   <p class="desc">
-    ボタンを押すと<strong>MEO請求管理</strong>スプレッドシートを直接読み込み、当月分・前月分の2ファイル（プラン1位/3位のみ）を出力します。<br>
+    ボタンを押すと<strong>MEO請求管理</strong>スプレッドシートを直接読み込み、前月分・前々月分の2ファイル（プラン1位/3位のみ）を出力します。<br>
     <code>2026.4</code>のような最新月シートを自動選択。
   </p>
 
@@ -420,15 +420,15 @@ function render() {
     </div>
     <div class="panel">
       <h2>🎯 抽出結果（プラン: 1位 / 3位）</h2>
-      <div class="row"><span class="label">${curLabel}（当月）</span><span class="value">${curRows.length} 件</span></div>
-      <div class="row"><span class="label">${prevLabel}（前月）</span><span class="value">${prevRows.length} 件</span></div>
+      <div class="row"><span class="label">${curLabel}（前月）</span><span class="value">${curRows.length} 件</span></div>
+      <div class="row"><span class="label">${prevLabel}（前々月）</span><span class="value">${prevRows.length} 件</span></div>
     </div>
     <div class="actions">
       <button class="btn" id="dlCur" ${curRows.length === 0 ? 'disabled' : ''}>
-        📥 当月分DL（${curLabel}・${curRows.length}件）
+        📥 前月分DL（${curLabel}・${curRows.length}件）
       </button>
       <button class="btn secondary" id="dlPrev" ${prevRows.length === 0 ? 'disabled' : ''}>
-        📥 前月分DL（${prevLabel}・${prevRows.length}件）
+        📥 前々月分DL（${prevLabel}・${prevRows.length}件）
       </button>
     </div>
   `;
