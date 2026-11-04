@@ -44,6 +44,9 @@
   .btn:disabled { background: #c7c7cc; cursor: not-allowed; }
   .btn.secondary { background: #f0f0f0; color: #1d1d1f; }
   .btn.secondary:hover { background: #e5e5ea; }
+  .btn.done { background: #34c759; }
+  .btn.done:hover { background: #30b350; }
+  .actions-note { font-size: 12px; color: #6e6e73; margin: 0 0 8px; text-align: center; }
   .error {
     background: #fff1f0;
     border: 1px solid #ffccc7;
@@ -244,17 +247,19 @@ function render() {
       <div class="row"><span class="label">${prevLabel}（前々月）</span><span class="value">${prevRows.length} 件</span></div>
     </div>
     <div class="actions">
+      <p class="actions-note">⚠ 2枚とも必要です。①②の順でDLして、両方kintoneに取り込んでください</p>
       <button class="btn" id="dlCur" ${curRows.length === 0 ? 'disabled' : ''}>
-        📥 前月分DL（${curLabel}・${curRows.length}件）
+        📥 ① 前月分DL（${curLabel}・${curRows.length}件）
       </button>
-      <button class="btn secondary" id="dlPrev" ${prevRows.length === 0 ? 'disabled' : ''}>
-        📥 前々月分DL（${prevLabel}・${prevRows.length}件）
+      <button class="btn" id="dlPrev" ${prevRows.length === 0 ? 'disabled' : ''}>
+        📥 ② 前々月分DL（${prevLabel}・${prevRows.length}件）
       </button>
     </div>
   `;
 
-  document.getElementById('dlCur').onclick = () => downloadCSV(curRows, curLabel);
-  document.getElementById('dlPrev').onclick = () => downloadCSV(prevRows, prevLabel);
+  const markDone = (btn, text) => { btn.classList.add('done'); btn.textContent = '✅ ' + text + '（DL済み・再DL可）'; };
+  document.getElementById('dlCur').onclick = (e) => { downloadCSV(curRows, curLabel); markDone(e.currentTarget, `① 前月分 ${curLabel}・${curRows.length}件`); };
+  document.getElementById('dlPrev').onclick = (e) => { downloadCSV(prevRows, prevLabel); markDone(e.currentTarget, `② 前々月分 ${prevLabel}・${prevRows.length}件`); };
 }
 
 function downloadCSV(rows, label) {
