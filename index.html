@@ -83,7 +83,7 @@
   </p>
 
   <div class="links">
-    <a id="srcLink" href="https://docs.google.com/spreadsheets/d/1-LQGmLhgBIPgb0eBeaZSs4h5fFJuk9DeEEW_Woa5hb0/edit" target="_blank" rel="noopener"><small>ソース（読み込み元）</small>📄 <span id="srcName">MEO請求管理（スプレッドシート）</span></a>
+    <a id="srcLink" href="https://docs.google.com/spreadsheets/d/1-LQGmLhgBIPgb0eBeaZSs4h5fFJuk9DeEEW_Woa5hb0/edit" target="_blank" rel="noopener"><small>ソース（読み込み元）</small>📄 <span id="srcName">MEO請求管理（取得中…）</span></a>
   </div>
 
   <div class="fetch-box">
@@ -114,6 +114,8 @@ let availableMonths = []; // データから抽出した{year, month, label}リ�
 let curRows = [], prevRows = [], curLabel = '', prevLabel = '';
 
 btnFetch.addEventListener('click', () => fetchFromSheet(''));
+// ページを開いたら自動で最新を取得（押す前にソースが旧ファイルのまま見えないようにする）
+window.addEventListener('load', () => fetchFromSheet(''));
 
 // スプレッドシート（GAS経由）から取得。sheetName が空なら最新月シート
 async function fetchFromSheet(sheetName) {
