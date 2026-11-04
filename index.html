@@ -79,11 +79,11 @@
   <h1>📋 課金CSV分割ツール</h1>
   <p class="desc">
     ボタンを押すと<strong>MEO請求管理</strong>スプレッドシートを直接読み込み、前月分・前々月分の2ファイル（プラン1位/3位のみ）を出力します。<br>
-    <code>2026.4</code>のような最新月シートを自動選択。
+    <code>2026.10MEO請求管理</code>のような一番新しい月のファイルと、その中の<code>2026.10</code>シートを自動選択。
   </p>
 
   <div class="links">
-    <a href="https://docs.google.com/spreadsheets/d/1-LQGmLhgBIPgb0eBeaZSs4h5fFJuk9DeEEW_Woa5hb0/edit" target="_blank" rel="noopener"><small>ソース（読み込み元）</small>📄 MEO請求管理（スプレッドシート）</a>
+    <a id="srcLink" href="https://docs.google.com/spreadsheets/d/1-LQGmLhgBIPgb0eBeaZSs4h5fFJuk9DeEEW_Woa5hb0/edit" target="_blank" rel="noopener"><small>ソース（読み込み元）</small>📄 <span id="srcName">MEO請求管理（スプレッドシート）</span></a>
   </div>
 
   <div class="fetch-box">
@@ -134,6 +134,10 @@ async function fetchFromSheet(sheetName) {
 
     parsedRows = data.rows;
     sourceLabel = `${data.spreadsheetName} → シート「${data.sheet}」`;
+    if (data.spreadsheetUrl) {
+      document.getElementById('srcLink').href = data.spreadsheetUrl;
+      document.getElementById('srcName').textContent = `${data.spreadsheetName}（スプレッドシート）`;
+    }
     extractAvailableMonths();
     const m = String(data.sheet).match(/^(\d{4})\.(\d{1,2})$/);
     if (m) {

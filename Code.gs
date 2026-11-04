@@ -4,7 +4,9 @@
 // 返すのは CONFIG.COLUMNS の4列だけ（金額・決済番号・案件名などは返さない）
 
 const CONFIG = {
-  SPREADSHEET_ID: '1-LQGmLhgBIPgb0eBeaZSs4h5fFJuk9DeEEW_Woa5hb0', // MEO請求管理
+  // 月ごとに別ファイル（例「2026.10MEO請求管理」）になるため、名前が一番新しいファイルを自動で選ぶ
+  FILE_NAME: /^(\d{4})\.(\d{1,2})MEO請求管理$/,
+  SPREADSHEET_ID: '1-LQGmLhgBIPgb0eBeaZSs4h5fFJuk9DeEEW_Woa5hb0', // 見つからないときの予備（2026.09MEO請求管理）
   HEADER_ROW: 1,                                            // 見出し行
   COLUMNS: ['顧客番号', '対象月', '課金日数', 'プラン'],     // 見出し名で列を探す（列の位置が変わってもOK）
   NUMBER_COLUMN: '課金日数',                                // 数値として返す列
@@ -25,8 +27,22 @@ function doGet(e) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
+// 「YYYY.MMMEO請求管理」という名前のスプレッドシートのうち一番新しい月のものを返す
+function findLatestSpreadsheet() {
+  let best = null, bestKey = -1;
+  const it = DriveApp.searchFiles("title contains 'MEO請求管理' and mimeType = 'application/vnd.google-apps.spreadsheet' and trashed = false");
+  while (it.hasNext()) {
+    const f = it.next();
+    const m = f.getName().match(CONFIG.FILE_NAME);
+    if (!m) continue;
+    const key = Number(m[1]) * 100 + Number(m[2]);
+    if (key > bestKey) { bestKey = key; best = f; }
+  }
+  return best ? SpreadsheetApp.openById(best.getId()) : SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+}
+
 function buildData(sheetName) {
-  const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  const ss = findLatestSpreadsheet();
   const names = ss.getSheets().map(s => s.getName());
 
   // シート指定がなければ「YYYY.M」形式のうち一番新しい月を選ぶ
@@ -78,6 +94,7 @@ function buildData(sheetName) {
   return {
     ok: true,
     spreadsheetName: ss.getName(),
+    spreadsheetUrl: ss.getUrl(),
     sheets: names,
     sheet: target,
     rows: rows,
